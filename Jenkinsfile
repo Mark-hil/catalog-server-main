@@ -140,27 +140,41 @@ pipeline {
         // }
         
         stage('Run Backend Tests') {
-            steps {
-                echo "========================================"
-                echo "🧪 RUNNING BACKEND TESTS"
-                echo "========================================"
-                dir('app') {
-                    script {
-                        try {
-                            if (isUnix()) {
-                                sh 'python -m pytest test.py -v'
-                            } else {
-                                bat 'python -m pytest test.py -v'
-                            }
-                            echo "✅ All tests passed"
-                        } catch (Exception e) {
-                            echo "❌ Tests failed"
-                            error(e.toString())
+        steps {
+            echo "========================================"
+            echo "🧪 RUNNING BACKEND TESTS"
+            echo "========================================"
+            dir('app') {
+                script {
+                    try {
+                        if (isUnix()) {
+                            sh '''
+                            echo "Installing pytest..."
+                            python -m pip install pytest
+                            echo "Running tests..."
+                            python -m pytest tests.py -v
+                            '''
+                        } else {
+                            bat '''
+                            echo "Installing pytest..."
+                            python -m pip install pytest
+                            echo "Running tests..."
+                            python -m pytest tests.py -v
+                            '''
                         }
+                        echo "✅ All tests passed"
+                    } catch (Exception e) {
+                        echo "❌ TESTS FAILED"
+                        echo "Error details: ${e.toString()}"
+                        echo "Possible solutions:"
+                        echo "1. Check if tests.py exists in app/"
+                        echo "2. Verify test dependencies are installed"
+                        error("Test execution failed")
                     }
                 }
             }
         }
+    }
         
         stage('Build Frontend') {
             steps {
