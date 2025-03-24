@@ -101,9 +101,9 @@ pipeline {
                     script {
                         try {
                             if (isUnix()) {
-                                sh 'python -m pytest tests/ -v'
+                                sh 'python -m pytest tests.py -v'
                             } else {
-                                bat 'python -m pytest tests/ -v'
+                                bat 'python -m pytest tests.py -v'
                             }
                             echo "✅ All backend tests passed"
                         } catch (Exception e) {
