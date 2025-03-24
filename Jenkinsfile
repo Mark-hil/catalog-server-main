@@ -111,7 +111,7 @@ pipeline {
                                 echo "Node.js version: $(node --version)"
                                 echo "npm version: $(npm --version)"
                                 echo "Installing packages..."
-                                npm install --loglevel verbose
+                                npm install 
                                 echo "Installed packages:"
                                 npm list --depth=0
                                 '''
