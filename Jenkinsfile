@@ -2,9 +2,9 @@ pipeline {
     agent any
     
     environment {
-        PYTHONPATH = "${WORKSPACE}/app"
-        FLASK_APP = "app.py"
-        // Add any other environment variables needed
+        // Set Python environment
+        PYTHONPATH = "${WORKSPACE}/app"  // Helps Python find your app modules
+        FLASK_APP = "app.py"              // For Flask projects
     }
     
     stages {
@@ -12,64 +12,46 @@ pipeline {
             steps {
                 echo "========================================"
                 echo "STARTING PIPELINE EXECUTION"
-                echo "BUILD ID: ${env.BUILD_ID}"
-                echo "BUILD URL: ${env.BUILD_URL}"
                 echo "========================================"
-                
-                echo "Cloning repository from ${env.GIT_URL}..."
                 checkout scm
-                
-                echo "========================================"
-                echo "CODE CHECKOUT COMPLETED"
-                echo "Working directory contents:"
-                script {
-                    if (isUnix()) {
-                        sh 'ls -la'
-                    } else {
-                        bat 'dir'
-                    }
-                }
-                echo "========================================"
+                echo "Repository cloned successfully"
             }
         }
         
         stage('Install Backend Dependencies') {
             steps {
                 echo "========================================"
-                echo "INSTALLING BACKEND DEPENDENCIES"
-                echo "Working in ./app directory..."
+                echo "INSTALLING PYTHON DEPENDENCIES"
+                echo "Using requirements.txt from root directory"
                 echo "========================================"
                 
-                dir('app') {
-                    script {
-                        try {
-                            if (isUnix()) {
-                                sh '''
-                                echo "Upgrading pip..."
-                                python -m pip install --upgrade pip
-                                echo "Installing requirements..."
-                                pip install -r requirements.txt
-                                echo "Installed packages:"
-                                pip list
-                                '''
-                            } else {
-                                bat '''
-                                echo "Upgrading pip..."
-                                python -m pip install --upgrade pip
-                                echo "Installing requirements..."
-                                pip install -r requirements.txt
-                                echo "Installed packages:"
-                                pip list
-                                '''
-                            }
-                            echo "✅ Backend dependencies installed successfully"
-                        } catch (Exception e) {
-                            echo "❌ Failed to install backend dependencies"
-                            error("Backend dependency installation failed")
+                script {
+                    try {
+                        if (isUnix()) {
+                            sh '''
+                            echo "Python version:"
+                            python3 --version
+                            echo "Installing dependencies..."
+                            pip3 install -r requirements.txt
+                            echo "Installed packages:"
+                            pip3 list
+                            '''
+                        } else {
+                            bat '''
+                            echo "Python version:"
+                            python --version
+                            echo "Installing dependencies..."
+                            pip install -r requirements.txt
+                            echo "Installed packages:"
+                            pip list
+                            '''
                         }
+                        echo "✅ Backend dependencies installed successfully"
+                    } catch (Exception e) {
+                        echo "❌ BACKEND DEPENDENCY INSTALLATION FAILED"
+                        error(e.toString())
                     }
                 }
-                echo "========================================"
             }
         }
         
@@ -77,7 +59,7 @@ pipeline {
             steps {
                 echo "========================================"
                 echo "INSTALLING FRONTEND DEPENDENCIES"
-                echo "Working in ./frontend directory..."
+                echo "Working in ./frontend directory"
                 echo "========================================"
                 
                 dir('frontend') {
@@ -87,33 +69,24 @@ pipeline {
                                 sh '''
                                 echo "Node version:"
                                 node --version
-                                echo "NPM version:"
-                                npm --version
-                                echo "Installing dependencies..."
+                                echo "Installing npm packages..."
                                 npm install
-                                echo "Installed packages:"
-                                npm list --depth=0
                                 '''
                             } else {
                                 bat '''
                                 echo "Node version:"
                                 node --version
-                                echo "NPM version:"
-                                npm --version
-                                echo "Installing dependencies..."
+                                echo "Installing npm packages..."
                                 npm install
-                                echo "Installed packages:"
-                                npm list --depth=0
                                 '''
                             }
                             echo "✅ Frontend dependencies installed successfully"
                         } catch (Exception e) {
-                            echo "❌ Failed to install frontend dependencies"
-                            error("Frontend dependency installation failed")
+                            echo "❌ FRONTEND DEPENDENCY INSTALLATION FAILED"
+                            error(e.toString())
                         }
                     }
                 }
-                echo "========================================"
             }
         }
         
@@ -121,35 +94,24 @@ pipeline {
             steps {
                 echo "========================================"
                 echo "RUNNING BACKEND TESTS"
-                echo "Working in ./app/tests directory..."
+                echo "Working in ./app/tests directory"
                 echo "========================================"
                 
                 dir('app') {
                     script {
                         try {
                             if (isUnix()) {
-                                sh '''
-                                echo "Running pytest with verbose output..."
-                                python -m pytest tests/ -v
-                                echo "Test coverage report:"
-                                python -m pytest --cov=. tests/
-                                '''
+                                sh 'python -m pytest tests/ -v'
                             } else {
-                                bat '''
-                                echo "Running pytest with verbose output..."
-                                python -m pytest tests/ -v
-                                echo "Test coverage report:"
-                                python -m pytest --cov=. tests/
-                                '''
+                                bat 'python -m pytest tests/ -v'
                             }
-                            echo "✅ All backend tests passed successfully"
+                            echo "✅ All backend tests passed"
                         } catch (Exception e) {
-                            echo "❌ Backend tests failed"
-                            error("Backend tests failed")
+                            echo "❌ BACKEND TESTS FAILED"
+                            error(e.toString())
                         }
                     }
                 }
-                echo "========================================"
             }
         }
         
@@ -157,35 +119,23 @@ pipeline {
             steps {
                 echo "========================================"
                 echo "BUILDING FRONTEND"
-                echo "Working in ./frontend directory..."
                 echo "========================================"
                 
                 dir('frontend') {
                     script {
                         try {
                             if (isUnix()) {
-                                sh '''
-                                echo "Building frontend assets..."
-                                npm run build
-                                echo "Build output:"
-                                ls -la dist/
-                                '''
+                                sh 'npm run build'
                             } else {
-                                bat '''
-                                echo "Building frontend assets..."
-                                npm run build
-                                echo "Build output:"
-                                dir dist\
-                                '''
+                                bat 'npm run build'
                             }
                             echo "✅ Frontend built successfully"
                         } catch (Exception e) {
-                            echo "❌ Frontend build failed"
-                            error("Frontend build failed")
+                            echo "❌ FRONTEND BUILD FAILED"
+                            error(e.toString())
                         }
                     }
                 }
-                echo "========================================"
             }
         }
     }
@@ -193,58 +143,17 @@ pipeline {
     post {
         always {
             echo "========================================"
-            echo "PIPELINE FINISHED"
-            echo "Current build status: ${currentBuild.currentResult}"
-            echo "Build duration: ${currentBuild.durationString}"
-            echo "Cleaning up workspace..."
+            echo "PIPELINE FINISHED - STATUS: ${currentBuild.currentResult}"
+            echo "========================================"
             cleanWs()
-            echo "========================================"
-            
-            // Archive test results if you have JUnit format
-            // junit 'app/tests/results/*.xml'
-            
-            // Archive build artifacts
-            // archiveArtifacts artifacts: 'frontend/dist/**/*', fingerprint: true
         }
-        
         success {
-            echo "========================================"
-            echo "PIPELINE SUCCEEDED 🎉"
-            echo "All stages completed successfully!"
-            echo "========================================"
-            
-            // Uncomment to enable Slack notifications
-            /*
-            slackSend (
-                color: 'good',
-                message: "SUCCESS: Job '${env.JOB_NAME}' [${env.BUILD_NUMBER}] \n(<${env.BUILD_URL}|Open>)"
-            )
-            */
+            echo "🎉 PIPELINE SUCCEEDED!"
+            // slackSend message: "Pipeline succeeded! ${env.BUILD_URL}"
         }
-        
         failure {
-            echo "========================================"
-            echo "PIPELINE FAILED ❌"
-            echo "Failed stage: ${env.STAGE_NAME}"
-            echo "Check the logs for details: ${env.BUILD_URL}console"
-            echo "========================================"
-            
-            // Uncomment to enable email notifications
-            /*
-            emailext (
-                subject: "FAILED: Job '${env.JOB_NAME}' [${env.BUILD_NUMBER}]",
-                body: """
-                Check console output at <a href="${env.BUILD_URL}">${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>
-                """,
-                to: 'dev-team@example.com',
-                recipientProviders: [[$class: 'DevelopersRecipientProvider']]
-            )
-            */
-        }
-        
-        unstable {
-            echo "Pipeline completed with unstable status"
-            // Handle unstable build (e.g., when tests fail but build continues)
+            echo "❌ PIPELINE FAILED"
+            // mail to: 'team@example.com', subject: "Pipeline failed"
         }
     }
 }
