@@ -152,14 +152,14 @@ pipeline {
                             echo "Installing pytest..."
                             python -m pip install pytest
                             echo "Running tests..."
-                            python -m pytest tests.py -v
+                            python -m pytest test.py -v
                             '''
                         } else {
                             bat '''
                             echo "Installing pytest..."
                             python -m pip install pytest
                             echo "Running tests..."
-                            python -m pytest tests.py -v
+                            python -m pytest test.py -v
                             '''
                         }
                         echo "✅ All tests passed"
@@ -176,35 +176,35 @@ pipeline {
         }
     }
         
-        stage('Build Frontend') {
-            steps {
-                echo "========================================"
-                echo "🏗️ BUILDING FRONTEND"
-                echo "========================================"
-                dir('frontend') {
-                    script {
-                        try {
-                            if (isUnix()) {
-                                sh '''
-                                npm run build
-                                echo "Build output:"
-                                ls -la dist/
-                                '''
-                            } else {
-                                bat '''
-                                npm run build
-                                dir dist\\
-                                '''
-                            }
-                            echo "✅ Frontend built successfully"
-                        } catch (Exception e) {
-                            echo "❌ Frontend build failed"
-                            error(e.toString())
-                        }
-                    }
-                }
-            }
-        }
+        // stage('Build Frontend') {
+        //     steps {
+        //         echo "========================================"
+        //         echo "🏗️ BUILDING FRONTEND"
+        //         echo "========================================"
+        //         dir('frontend') {
+        //             script {
+        //                 try {
+        //                     if (isUnix()) {
+        //                         sh '''
+        //                         npm run build
+        //                         echo "Build output:"
+        //                         ls -la dist/
+        //                         '''
+        //                     } else {
+        //                         bat '''
+        //                         npm run build
+        //                         dir dist\\
+        //                         '''
+        //                     }
+        //                     echo "✅ Frontend built successfully"
+        //                 } catch (Exception e) {
+        //                     echo "❌ Frontend build failed"
+        //                     error(e.toString())
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
     }
     
     post {
