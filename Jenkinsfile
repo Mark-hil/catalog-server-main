@@ -98,46 +98,46 @@ pipeline {
             }
         }
         
-        stage('Install Frontend Dependencies') {
-            steps {
-                echo "========================================"
-                echo "🖥️ INSTALLING FRONTEND DEPENDENCIES"
-                echo "========================================"
-                dir('frontend') {
-                    script {
-                        try {
-                            if (isUnix()) {
-                                sh '''
-                                echo "Node.js version: $(node --version)"
-                                echo "npm version: $(npm --version)"
-                                echo "Installing packages..."
-                                npm install 
-                                echo "Installed packages:"
-                                npm list --depth=0
-                                '''
-                            } else {
-                                bat '''
-                                node --version
-                                npm --version
-                                npm install --loglevel verbose
-                                npm list --depth=0
-                                '''
-                            }
-                            echo "✅ Frontend dependencies installed"
-                        } catch (Exception e) {
-                            echo """
-                            ❌ FRONTEND INSTALL FAILED!
-                            Common fixes:
-                            1. Verify package.json exists in frontend/
-                            2. Check npm debug log: ${WORKSPACE}/frontend/npm-debug.log
-                            3. Ensure network connectivity
-                            """
-                            error(e.toString())
-                        }
-                    }
-                }
-            }
-        }
+        // stage('Install Frontend Dependencies') {
+        //     steps {
+        //         echo "========================================"
+        //         echo "🖥️ INSTALLING FRONTEND DEPENDENCIES"
+        //         echo "========================================"
+        //         dir('frontend') {
+        //             script {
+        //                 try {
+        //                     if (isUnix()) {
+        //                         sh '''
+        //                         echo "Node.js version: $(node --version)"
+        //                         echo "npm version: $(npm --version)"
+        //                         echo "Installing packages..."
+        //                         npm install 
+        //                         echo "Installed packages:"
+        //                         npm list --depth=0
+        //                         '''
+        //                     } else {
+        //                         bat '''
+        //                         node --version
+        //                         npm --version
+        //                         npm install --loglevel verbose
+        //                         npm list --depth=0
+        //                         '''
+        //                     }
+        //                     echo "✅ Frontend dependencies installed"
+        //                 } catch (Exception e) {
+        //                     echo """
+        //                     ❌ FRONTEND INSTALL FAILED!
+        //                     Common fixes:
+        //                     1. Verify package.json exists in frontend/
+        //                     2. Check npm debug log: ${WORKSPACE}/frontend/npm-debug.log
+        //                     3. Ensure network connectivity
+        //                     """
+        //                     error(e.toString())
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
         
         stage('Run Backend Tests') {
             steps {
