@@ -3,52 +3,95 @@ pipeline {
     
     environment {
         // Set Python environment
-        PYTHONPATH = "${WORKSPACE}/app"  // Helps Python find your app modules
-        FLASK_APP = "app.py"              // For Flask projects
+        PYTHONPATH = "${WORKSPACE}/app"
+        FLASK_APP = "app.py"
     }
     
     stages {
         stage('Checkout Code') {
             steps {
                 echo "========================================"
-                echo "STARTING PIPELINE EXECUTION"
+                echo "🚀 STARTING PIPELINE EXECUTION"
                 echo "========================================"
                 checkout scm
-                echo "Repository cloned successfully"
+                echo "✅ Repository cloned successfully"
+                
+                // Debug: Show workspace structure
+                script {
+                    if (isUnix()) {
+                        sh 'echo "Workspace contents:" && ls -la'
+                    } else {
+                        bat 'echo "Workspace contents:" && dir'
+                    }
+                }
+            }
+        }
+        
+        // NEW: Verify Node.js/npm are installed
+        stage('Verify Node.js Installation') {
+            steps {
+                echo "========================================"
+                echo "🔍 CHECKING NODE.JS INSTALLATION"
+                echo "========================================"
+                script {
+                    try {
+                        if (isUnix()) {
+                            sh '''
+                            echo "Node.js version:"
+                            node --version || exit 1
+                            echo "npm version:"
+                            npm --version || exit 1
+                            '''
+                        } else {
+                            bat '''
+                            echo "Node.js version:"
+                            node --version || exit /b 1
+                            echo "npm version:"
+                            npm --version || exit /b 1
+                            '''
+                        }
+                        echo "✅ Node.js and npm are properly installed"
+                    } catch (Exception e) {
+                        echo """
+                        ❌ NODE.JS/NPM MISSING!
+                        Install Node.js on the Jenkins server first:
+                        
+                        For Ubuntu/Debian:
+                        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+                        sudo apt-get install -y nodejs
+                        
+                        Or use a Docker agent with:
+                        agent { docker { image 'node:18' } }
+                        """
+                        error("Node.js/npm not found")
+                    }
+                }
             }
         }
         
         stage('Install Backend Dependencies') {
             steps {
                 echo "========================================"
-                echo "INSTALLING PYTHON DEPENDENCIES"
-                echo "Using requirements.txt from root directory"
+                echo "🐍 INSTALLING PYTHON DEPENDENCIES"
                 echo "========================================"
-                
                 script {
                     try {
                         if (isUnix()) {
                             sh '''
-                            echo "Python version:"
                             python3 --version
-                            echo "Installing dependencies..."
                             pip3 install -r requirements.txt
-                            echo "Installed packages:"
                             pip3 list
                             '''
                         } else {
                             bat '''
-                            echo "Python version:"
                             python --version
-                            echo "Installing dependencies..."
                             pip install -r requirements.txt
-                            echo "Installed packages:"
                             pip list
                             '''
                         }
-                        echo "✅ Backend dependencies installed successfully"
+                        echo "✅ Backend dependencies installed"
                     } catch (Exception e) {
-                        echo "❌ BACKEND DEPENDENCY INSTALLATION FAILED"
+                        echo "❌ Python dependency install failed"
                         error(e.toString())
                     }
                 }
@@ -58,31 +101,37 @@ pipeline {
         stage('Install Frontend Dependencies') {
             steps {
                 echo "========================================"
-                echo "INSTALLING FRONTEND DEPENDENCIES"
-                echo "Working in ./frontend directory"
+                echo "🖥️ INSTALLING FRONTEND DEPENDENCIES"
                 echo "========================================"
-                
                 dir('frontend') {
                     script {
                         try {
                             if (isUnix()) {
                                 sh '''
-                                echo "Node version:"
-                                node --version
-                                echo "Installing npm packages..."
-                                npm install
+                                echo "Node.js version: $(node --version)"
+                                echo "npm version: $(npm --version)"
+                                echo "Installing packages..."
+                                npm install --loglevel verbose
+                                echo "Installed packages:"
+                                npm list --depth=0
                                 '''
                             } else {
                                 bat '''
-                                echo "Node version:"
                                 node --version
-                                echo "Installing npm packages..."
-                                npm install
+                                npm --version
+                                npm install --loglevel verbose
+                                npm list --depth=0
                                 '''
                             }
-                            echo "✅ Frontend dependencies installed successfully"
+                            echo "✅ Frontend dependencies installed"
                         } catch (Exception e) {
-                            echo "❌ FRONTEND DEPENDENCY INSTALLATION FAILED"
+                            echo """
+                            ❌ FRONTEND INSTALL FAILED!
+                            Common fixes:
+                            1. Verify package.json exists in frontend/
+                            2. Check npm debug log: ${WORKSPACE}/frontend/npm-debug.log
+                            3. Ensure network connectivity
+                            """
                             error(e.toString())
                         }
                     }
@@ -93,21 +142,19 @@ pipeline {
         stage('Run Backend Tests') {
             steps {
                 echo "========================================"
-                echo "RUNNING BACKEND TESTS"
-                echo "Working in ./app/tests directory"
+                echo "🧪 RUNNING BACKEND TESTS"
                 echo "========================================"
-                
                 dir('app') {
                     script {
                         try {
                             if (isUnix()) {
-                                sh 'python -m pytest tests.py -v'
+                                sh 'python -m pytest test.py -v'
                             } else {
-                                bat 'python -m pytest tests.py -v'
+                                bat 'python -m pytest test.py -v'
                             }
-                            echo "✅ All backend tests passed"
+                            echo "✅ All tests passed"
                         } catch (Exception e) {
-                            echo "❌ BACKEND TESTS FAILED"
+                            echo "❌ Tests failed"
                             error(e.toString())
                         }
                     }
@@ -118,20 +165,26 @@ pipeline {
         stage('Build Frontend') {
             steps {
                 echo "========================================"
-                echo "BUILDING FRONTEND"
+                echo "🏗️ BUILDING FRONTEND"
                 echo "========================================"
-                
                 dir('frontend') {
                     script {
                         try {
                             if (isUnix()) {
-                                sh 'npm run build'
+                                sh '''
+                                npm run build
+                                echo "Build output:"
+                                ls -la dist/
+                                '''
                             } else {
-                                bat 'npm run build'
+                                bat '''
+                                npm run build
+                                dir dist\\
+                                '''
                             }
                             echo "✅ Frontend built successfully"
                         } catch (Exception e) {
-                            echo "❌ FRONTEND BUILD FAILED"
+                            echo "❌ Frontend build failed"
                             error(e.toString())
                         }
                     }
@@ -143,17 +196,17 @@ pipeline {
     post {
         always {
             echo "========================================"
-            echo "PIPELINE FINISHED - STATUS: ${currentBuild.currentResult}"
+            echo "🏁 PIPELINE FINISHED - STATUS: ${currentBuild.currentResult}"
             echo "========================================"
             cleanWs()
         }
         success {
             echo "🎉 PIPELINE SUCCEEDED!"
-            // slackSend message: "Pipeline succeeded! ${env.BUILD_URL}"
+            // slackSend message: "Build succeeded: ${env.BUILD_URL}"
         }
         failure {
             echo "❌ PIPELINE FAILED"
-            // mail to: 'team@example.com', subject: "Pipeline failed"
+            // mail to: 'team@example.com', subject: "Build failed"
         }
     }
 }
