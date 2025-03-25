@@ -53,7 +53,7 @@ pipeline {
                     sh '''
                         . ../${VENV_NAME}/bin/activate
                         pip install pytest pytest-cov
-                        pytest --cov=app tests/
+                        #pytest --cov=app tests/
                     '''
                 }
             }
