@@ -37,7 +37,6 @@ pipeline {
                         pip install flake8
                         pip install black
                         black .
-                       
                     '''
                 }
             }
@@ -50,8 +49,7 @@ pipeline {
                     sh '''
                         . ../${VENV_NAME}/bin/activate
                         pip install pytest pytest-cov
-                        python -m pytest test.py -v
-                        
+                        PYTHONPATH=.. python -m pytest test.py -v
                     '''
                 }
                 post {
@@ -70,11 +68,6 @@ pipeline {
                         . ../${VENV_NAME}/bin/activate
                         pip freeze > ../requirements.txt
                     '''
-                    
-                    // Optional: Build Docker image for backend
-                    // script {
-                    //     docker.build("flask-backend:${env.BUILD_NUMBER}")
-                    // }
                 }
             }
         }
