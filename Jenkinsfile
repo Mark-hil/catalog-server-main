@@ -5,6 +5,8 @@ pipeline {
         PYTHONPATH = "${WORKSPACE}/app"
         FLASK_APP = "app.py"
         VENV_DIR = "${WORKSPACE}/venv"
+        # Add database URI configuration
+        SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'  // Or your test database URI
     }
     
     stages {
@@ -48,14 +50,6 @@ pipeline {
                             '''
                         }
                     } catch (Exception e) {
-                        echo """
-                        ❌ VIRTUALENV CREATION FAILED
-                        Detailed Debug Information:
-                        - Verify Python installation: python3 --version
-                        - Check system Python path: which python3
-                        - Confirm Python venv module: python3 -m venv --help
-                        - Check workspace permissions
-                        """
                         error("Virtualenv setup failed: ${e.getMessage()}")
                     }
                 }
@@ -69,7 +63,6 @@ pipeline {
                         if (isUnix()) {
                             sh '''
                             . "${VENV_DIR}/bin/activate"
-                            # Use the root workspace for requirements.txt
                             python3 -m pip install -r "${WORKSPACE}/requirements.txt" pytest pytest-cov
                             python3 -c "import flask; print(f'Flask version: {flask.__version__}')"
                             '''
@@ -88,6 +81,10 @@ pipeline {
         }
 
         stage('Run Tests') {
+            environment {
+                # Explicitly set database URI for tests
+                SQLALCHEMY_DATABASE_URI = 'sqlite:///test.db'
+            }
             steps {
                 dir('app') {
                     script {
