@@ -20,7 +20,6 @@ pipeline {
                     try {
                         if (isUnix()) {
                             sh '''
-                            # Explicitly use bash and set -e to exit on any error
                             set -e
                             
                             # Ensure python3 and venv are available
@@ -63,28 +62,26 @@ pipeline {
             }
         }
 
-        // Subsequent stages remain the same as in the original pipeline
         stage('Install Dependencies') {
             steps {
-                dir('app') {
-                    script {
-                        try {
-                            if (isUnix()) {
-                                sh '''
-                                . "${VENV_DIR}/bin/activate"
-                                python3 -m pip install -r requirements.txt pytest pytest-cov
-                                python3 -c "import flask; print(f'Flask version: {flask.__version__}')"
-                                '''
-                            } else {
-                                bat '''
-                                call "%VENV_DIR%\\Scripts\\activate"
-                                pip install -r requirements.txt pytest pytest-cov
-                                python -c "import flask; print(f'Flask version: {flask.__version__}')"
-                                '''
-                            }
-                        } catch (Exception e) {
-                            error("Dependencies installation failed: ${e.getMessage()}")
+                script {
+                    try {
+                        if (isUnix()) {
+                            sh '''
+                            . "${VENV_DIR}/bin/activate"
+                            # Use the root workspace for requirements.txt
+                            python3 -m pip install -r "${WORKSPACE}/requirements.txt" pytest pytest-cov
+                            python3 -c "import flask; print(f'Flask version: {flask.__version__}')"
+                            '''
+                        } else {
+                            bat '''
+                            call "%VENV_DIR%\\Scripts\\activate"
+                            pip install -r "%WORKSPACE%\\requirements.txt" pytest pytest-cov
+                            python -c "import flask; print(f'Flask version: {flask.__version__}')"
+                            '''
                         }
+                    } catch (Exception e) {
+                        error("Dependencies installation failed: ${e.getMessage()}")
                     }
                 }
             }
