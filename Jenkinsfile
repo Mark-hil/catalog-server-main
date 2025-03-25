@@ -5,6 +5,9 @@ pipeline {
         PYTHON_VERSION = '3.9'
         BACKEND_DIR = 'app'
         VENV_NAME = 'flask-backend-env'
+        # Fallback to a test SQLite database if not set
+        DATABASE_URI = 'sqlite:///test.db'
+        SQLALCHEMY_DATABASE_URI = 'sqlite:///test.db'
     }
     
     stages {
@@ -24,6 +27,7 @@ pipeline {
                     . ${VENV_NAME}/bin/activate
                     pip install --upgrade pip
                     pip install -r requirements.txt
+                    pip install python-dotenv
                 '''
             }
         }
@@ -43,19 +47,19 @@ pipeline {
         }
         
         stage('Test') {
+            environment {
+                # Explicitly set database URI for testing
+                DATABASE_URI = 'sqlite:///test.db'
+                SQLALCHEMY_DATABASE_URI = 'sqlite:///test.db'
+            }
             steps {
                 dir("${BACKEND_DIR}") {
                     echo 'Running automated tests'
                     sh '''
                         . ../${VENV_NAME}/bin/activate
                         pip install pytest pytest-cov
-                        PYTHONPATH=.. python -m pytest test.py -v
+                        PYTHONPATH=.. DATABASE_URI='sqlite:///test.db' SQLALCHEMY_DATABASE_URI='sqlite:///test.db' python -m pytest test.py -v
                     '''
-                }
-                post {
-                    always {
-                        cobertura coberturaReportFile: "${BACKEND_DIR}/coverage.xml"
-                    }
                 }
             }
         }
