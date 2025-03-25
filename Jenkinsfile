@@ -6,6 +6,10 @@ pipeline {
         BACKEND_DIR = 'app'
         VENV_NAME = 'flask-backend-env'
         SQLALCHEMY_DATABASE_URI = 'sqlite:///test.db'
+        DOCKERHUB_USERNAME = 'markhill97' // Replace with your actual Docker Hub username
+        DOCKER_IMAGE = "${DOCKERHUB_USERNAME}/catalog-server"
+        DOCKER_TAG = "${env.BUILD_NUMBER}"
+        DOCKER_CREDENTIALS = 'dockerhub-credentials' 
     }
     
     stages {
@@ -62,14 +66,25 @@ pipeline {
             }
         }
         
-        stage('Build') {
+        stage('Build Docker Image') {
             steps {
-                dir("${BACKEND_DIR}") {
-                    echo 'Preparing deployable artifact'
-                    sh '''
-                        . ../${VENV_NAME}/bin/activate
-                        pip freeze > ../requirements.txt
-                    '''
+                script {
+                    // Build Docker image
+                    docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}")
+                }
+            }
+        }
+        
+        stage('Push to Docker Hub') {
+            steps {
+                script {
+                    // Login and push image to Docker Hub
+                    docker.withRegistry('https://registry.hub.docker.com', DOCKER_CREDENTIALS) {
+                        docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").push()
+                        
+                        // Also tag and push as latest
+                        docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").push('latest')
+                    }
                 }
             }
         }
