@@ -35,6 +35,8 @@ pipeline {
                     sh '''
                         . ../${VENV_NAME}/bin/activate
                         pip install flake8
+                        pip install black
+                        black .
                         flake8 .
                     '''
                 }
