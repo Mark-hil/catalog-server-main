@@ -47,7 +47,7 @@ pipeline {
         stage('Test') {
             environment {
                 
-                DATABASE_URI = 'sqlite:///test.db'
+                
                 SQLALCHEMY_DATABASE_URI = 'sqlite:///test.db'
             }
             steps {
@@ -56,7 +56,7 @@ pipeline {
                     sh '''
                         . ../${VENV_NAME}/bin/activate
                         pip install pytest pytest-cov
-                        PYTHONPATH=.. DATABASE_URI='sqlite:///test.db' SQLALCHEMY_DATABASE_URI='sqlite:///test.db' python -m pytest test.py -v
+                        python -m pytest test.py -v
                     '''
                 }
             }
