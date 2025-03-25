@@ -3,7 +3,7 @@ pipeline {
     
     environment {
         PYTHON_VERSION = '3.9'
-        BACKEND_DIR = 'backend'
+        BACKEND_DIR = 'app'
         VENV_NAME = 'flask-backend-env'
     }
     
@@ -48,7 +48,7 @@ pipeline {
                     sh '''
                         . ../${VENV_NAME}/bin/activate
                         pip install pytest pytest-cov
-                        python -m pytest app/test.py -v
+                        python -m pytest test.py -v
                         PYTHONPATH=.. pytest --cov=. --cov-report=xml
                     '''
                 }
