@@ -6,7 +6,7 @@ pipeline {
         FLASK_APP = "app.py"
         VENV_DIR = "${WORKSPACE}/venv"
         # Add database URI configuration
-        SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'  // Or your test database URI
+        SQLALCHEMY_DATABASE_URI = 'sqlite:///test.db'  // Or your test database URI
     }
     
     stages {
