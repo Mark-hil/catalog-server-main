@@ -47,7 +47,7 @@ pipeline {
         
         stage('Test') {
             environment {
-                # Explicitly set database URI for testing
+                
                 DATABASE_URI = 'sqlite:///test.db'
                 SQLALCHEMY_DATABASE_URI = 'sqlite:///test.db'
             }
