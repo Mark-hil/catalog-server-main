@@ -50,8 +50,8 @@ pipeline {
                     sh '''
                         . ../${VENV_NAME}/bin/activate
                         pip install pytest pytest-cov
-                        #python -m pytest test.py -v
-                       # PYTHONPATH=.. pytest --cov=. --cov-report=xml
+                        python -m pytest test.py -v
+                        
                     '''
                 }
                 post {
