@@ -2,108 +2,76 @@ pipeline {
     agent any
     
     environment {
-        PYTHONPATH = "${WORKSPACE}/app"
-        FLASK_APP = "app.py"
-        VENV_DIR = "${WORKSPACE}/venv"
-        # Add database URI configuration
-        SQLALCHEMY_DATABASE_URI = 'sqlite:///test.db'  // Or your test database URI
+        PYTHON_VERSION = '3.9'
+        BACKEND_DIR = 'backend'
+        VENV_NAME = 'flask-backend-env'
     }
     
     stages {
-        stage('Checkout Code') {
-            steps { 
-                checkout scm 
+        stage('Source') {
+            steps {
+                echo 'Checking out source code from version control'
+                git branch: 'main', 
+                    url: 'https://github.com/Mark-hil/catalog-server-main.git'
             }
         }
-
-        stage('Setup Virtualenv') {
+        
+        stage('Setup') {
             steps {
-                script {
-                    try {
-                        if (isUnix()) {
-                            sh '''
-                            set -e
-                            
-                            # Ensure python3 and venv are available
-                            which python3 || (echo "Python3 not found" && exit 1)
-                            
-                            # Remove existing venv directory if it exists
-                            rm -rf "${VENV_DIR}" || true
-                            
-                            # Create virtualenv using full path to python3
-                            python3 -m venv "${VENV_DIR}"
-                            
-                            # Activate virtualenv and upgrade pip
-                            . "${VENV_DIR}/bin/activate"
-                            python3 -m pip install --upgrade pip
-                            
-                            echo "✅ Virtualenv successfully created at ${VENV_DIR}"
-                            '''
-                        } else {
-                            bat '''
-                            @echo off
-                            if exist "%VENV_DIR%" rmdir /s /q "%VENV_DIR%"
-                            python -m venv "%VENV_DIR%"
-                            call "%VENV_DIR%\\Scripts\\activate"
-                            python -m pip install --upgrade pip
-                            echo Virtualenv successfully created at %VENV_DIR%
-                            '''
-                        }
-                    } catch (Exception e) {
-                        error("Virtualenv setup failed: ${e.getMessage()}")
+                echo 'Setting up Python virtual environment for backend'
+                sh '''
+                    python3 -m venv ${VENV_NAME}
+                    . ${VENV_NAME}/bin/activate
+                    pip install --upgrade pip
+                    pip install -r requirements.txt
+                '''
+            }
+        }
+        
+        stage('Lint') {
+            steps {
+                dir("${BACKEND_DIR}") {
+                    echo 'Running code quality checks'
+                    sh '''
+                        . ../${VENV_NAME}/bin/activate
+                        pip install flake8
+                        flake8 .
+                    '''
+                }
+            }
+        }
+        
+        stage('Test') {
+            steps {
+                dir("${BACKEND_DIR}") {
+                    echo 'Running automated tests'
+                    sh '''
+                        . ../${VENV_NAME}/bin/activate
+                        pip install pytest pytest-cov
+                        PYTHONPATH=.. pytest --cov=. --cov-report=xml
+                    '''
+                }
+                post {
+                    always {
+                        cobertura coberturaReportFile: "${BACKEND_DIR}/coverage.xml"
                     }
                 }
             }
         }
-
-        stage('Install Dependencies') {
+        
+        stage('Build') {
             steps {
-                script {
-                    try {
-                        if (isUnix()) {
-                            sh '''
-                            . "${VENV_DIR}/bin/activate"
-                            python3 -m pip install -r "${WORKSPACE}/requirements.txt" pytest pytest-cov
-                            python3 -c "import flask; print(f'Flask version: {flask.__version__}')"
-                            '''
-                        } else {
-                            bat '''
-                            call "%VENV_DIR%\\Scripts\\activate"
-                            pip install -r "%WORKSPACE%\\requirements.txt" pytest pytest-cov
-                            python -c "import flask; print(f'Flask version: {flask.__version__}')"
-                            '''
-                        }
-                    } catch (Exception e) {
-                        error("Dependencies installation failed: ${e.getMessage()}")
-                    }
-                }
-            }
-        }
-
-        stage('Run Tests') {
-            environment {
-                # Explicitly set database URI for tests
-                SQLALCHEMY_DATABASE_URI = 'sqlite:///test.db'
-            }
-            steps {
-                dir('app') {
-                    script {
-                        try {
-                            if (isUnix()) {
-                                sh '''
-                                . "${VENV_DIR}/bin/activate"
-                                python3 -m pytest test.py -v --cov=. --cov-report=term-missing
-                                '''
-                            } else {
-                                bat '''
-                                call "%VENV_DIR%\\Scripts\\activate"
-                                python -m pytest test.py -v --cov=. --cov-report=term-missing
-                                '''
-                            }
-                        } catch (Exception e) {
-                            error("Tests failed: ${e.getMessage()}")
-                        }
-                    }
+                dir("${BACKEND_DIR}") {
+                    echo 'Preparing deployable artifact'
+                    sh '''
+                        . ../${VENV_NAME}/bin/activate
+                        pip freeze > ../requirements.txt
+                    '''
+                    
+                    // Optional: Build Docker image for backend
+                    // script {
+                    //     docker.build("flask-backend:${env.BUILD_NUMBER}")
+                    // }
                 }
             }
         }
@@ -111,8 +79,16 @@ pipeline {
     
     post {
         always {
-            archiveArtifacts artifacts: 'app/.pytest_cache/**/*', allowEmptyArchive: true
-            cleanWs()
+            echo 'Cleaning up virtual environment'
+            sh 'rm -rf ${VENV_NAME}'
+        }
+        
+        success {
+            echo 'Backend pipeline completed successfully!'
+        }
+        
+        failure {
+            echo 'Backend pipeline failed. Please check the logs.'
         }
     }
 }
