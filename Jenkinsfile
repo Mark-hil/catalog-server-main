@@ -2,225 +2,136 @@ pipeline {
     agent any
     
     environment {
-        // Set Python environment
         PYTHONPATH = "${WORKSPACE}/app"
         FLASK_APP = "app.py"
+        VENV_DIR = "${WORKSPACE}/venv"  // Virtualenv directory
     }
     
     stages {
         stage('Checkout Code') {
-            steps {
-                echo "========================================"
-                echo "🚀 STARTING PIPELINE EXECUTION"
-                echo "========================================"
-                checkout scm
-                echo "✅ Repository cloned successfully"
-                
-                // Debug: Show workspace structure
-                script {
-                    if (isUnix()) {
-                        sh 'echo "Workspace contents:" && ls -la'
-                    } else {
-                        bat 'echo "Workspace contents:" && dir'
-                    }
-                }
-            }
+            steps { checkout scm }
         }
-        
-        // NEW: Verify Node.js/npm are installed
-        stage('Verify Node.js Installation') {
+
+        stage('Setup Virtualenv') {
             steps {
                 echo "========================================"
-                echo "🔍 CHECKING NODE.JS INSTALLATION"
+                echo "🐍 CREATING PYTHON VIRTUAL ENVIRONMENT"
                 echo "========================================"
                 script {
                     try {
                         if (isUnix()) {
-                            sh '''
-                            echo "Node.js version:"
-                            node --version || exit 1
-                            echo "npm version:"
-                            npm --version || exit 1
-                            '''
+                            sh """
+                            # Clean existing venv if present
+                            rm -rf "${VENV_DIR}" || true
+                            
+                            # Create fresh virtualenv
+                            python3 -m venv "${VENV_DIR}" || exit 1
+                            
+                            # Activate and upgrade pip
+                            source "${VENV_DIR}/bin/activate"
+                            python -m pip install --upgrade pip
+                            echo "✅ Virtualenv ready at ${VENV_DIR}"
+                            """
                         } else {
-                            bat '''
-                            echo "Node.js version:"
-                            node --version || exit /b 1
-                            echo "npm version:"
-                            npm --version || exit /b 1
-                            '''
+                            bat """
+                            rmdir /s /q "${VENV_DIR}" 2>nul
+                            python -m venv "${VENV_DIR}" || exit /b 1
+                            call "${VENV_DIR}\\Scripts\\activate"
+                            python -m pip install --upgrade pip
+                            """
                         }
-                        echo "✅ Node.js and npm are properly installed"
                     } catch (Exception e) {
                         echo """
-                        ❌ NODE.JS/NPM MISSING!
-                        Install Node.js on the Jenkins server first:
-                        
-                        For Ubuntu/Debian:
-                        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-                        sudo apt-get install -y nodejs
-                        
-                        Or use a Docker agent with:
-                        agent { docker { image 'node:18' } }
+                        ❌ VIRTUALENV CREATION FAILED
+                        Debug steps:
+                        1. Verify Python is installed: python3 --version
+                        2. Check disk space: df -h ${WORKSPACE}
+                        3. Test manually: python3 -m venv /tmp/test_venv
                         """
-                        error("Node.js/npm not found")
+                        error("Virtualenv setup failed")
                     }
                 }
             }
         }
-        
-        stage('Install Backend Dependencies') {
+
+        stage('Install Dependencies') {
             steps {
-                echo "========================================"
-                echo "🐍 INSTALLING PYTHON DEPENDENCIES"
-                echo "========================================"
-                script {
-                    try {
-                        if (isUnix()) {
-                            sh '''
-                            python3 --version
-                            pip3 install -r requirements.txt
-                            pip3 list
-                            '''
-                        } else {
-                            bat '''
-                            python --version
-                            pip install -r requirements.txt
-                            pip list
-                            '''
+                dir('app') {
+                    script {
+                        try {
+                            if (isUnix()) {
+                                sh """
+                                source "${VENV_DIR}/bin/activate"
+                                echo "Installing dependencies..."
+                                pip install -r requirements.txt pytest pytest-cov
+                                echo "Verifying Flask installation:"
+                                python -c "import flask; print(f'Flask version: {flask.__version__}')"
+                                """
+                            } else {
+                                bat """
+                                call "${VENV_DIR}\\Scripts\\activate"
+                                pip install -r requirements.txt pytest pytest-cov
+                                python -c "import flask; print(f'Flask version: {flask.__version__}')"
+                                """
+                            }
+                            echo "✅ Dependencies installed"
+                        } catch (Exception e) {
+                            echo """
+                            ❌ DEPENDENCY INSTALLATION FAILED
+                            Verify:
+                            1. requirements.txt exists in app/
+                            2. File contains 'flask' package
+                            3. Network connectivity
+                            """
+                            error(e.toString())
                         }
-                        echo "✅ Backend dependencies installed"
-                    } catch (Exception e) {
-                        echo "❌ Python dependency install failed"
-                        error(e.toString())
                     }
                 }
             }
         }
-        
-        // stage('Install Frontend Dependencies') {
-        //     steps {
-        //         echo "========================================"
-        //         echo "🖥️ INSTALLING FRONTEND DEPENDENCIES"
-        //         echo "========================================"
-        //         dir('frontend') {
-        //             script {
-        //                 try {
-        //                     if (isUnix()) {
-        //                         sh '''
-        //                         echo "Node.js version: $(node --version)"
-        //                         echo "npm version: $(npm --version)"
-        //                         echo "Installing packages..."
-        //                         npm install 
-        //                         echo "Installed packages:"
-        //                         npm list --depth=0
-        //                         '''
-        //                     } else {
-        //                         bat '''
-        //                         node --version
-        //                         npm --version
-        //                         npm install --loglevel verbose
-        //                         npm list --depth=0
-        //                         '''
-        //                     }
-        //                     echo "✅ Frontend dependencies installed"
-        //                 } catch (Exception e) {
-        //                     echo """
-        //                     ❌ FRONTEND INSTALL FAILED!
-        //                     Common fixes:
-        //                     1. Verify package.json exists in frontend/
-        //                     2. Check npm debug log: ${WORKSPACE}/frontend/npm-debug.log
-        //                     3. Ensure network connectivity
-        //                     """
-        //                     error(e.toString())
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
-        
-        stage('Run Backend Tests') {
-        steps {
-            echo "========================================"
-            echo "🧪 RUNNING BACKEND TESTS"
-            echo "========================================"
-            dir('app') {
-                script {
-                    try {
-                        if (isUnix()) {
-                            sh '''
-                            echo "Installing pytest..."
-                            python -m pip install pytest
-                            echo "Running tests..."
-                            python -m pytest test.py -v
-                            '''
-                        } else {
-                            bat '''
-                            echo "Installing pytest..."
-                            python -m pip install pytest
-                            echo "Running tests..."
-                            python -m pytest test.py -v
-                            '''
+
+        stage('Run Tests') {
+            steps {
+                dir('app') {
+                    script {
+                        try {
+                            if (isUnix()) {
+                                sh """
+                                source "${VENV_DIR}/bin/activate"
+                                echo "Running tests with coverage..."
+                                python -m pytest test.py -v --cov=. --cov-report=term-missing
+                                """
+                            } else {
+                                bat """
+                                call "${VENV_DIR}\\Scripts\\activate"
+                                python -m pytest test.py -v --cov=. --cov-report=term-missing
+                                """
+                            }
+                            echo "✅ All tests passed"
+                        } catch (Exception e) {
+                            echo """
+                            ❌ TEST FAILURE DETAILS:
+                            1. Verify test.py imports match your virtualenv
+                            2. Check .pytest_cache for error details
+                            3. Last error:
+                            """
+                            if (isUnix()) {
+                                sh 'tail -n 20 .pytest_cache/v/cache/lastfailed || echo "No failure details"'
+                            } else {
+                                bat 'type .pytest_cache\\v\\cache\\lastfailed | more +20 || echo "No failure details"'
+                            }
+                            error("Tests failed")
                         }
-                        echo "✅ All tests passed"
-                    } catch (Exception e) {
-                        echo "❌ TESTS FAILED"
-                        echo "Error details: ${e.toString()}"
-                        echo "Possible solutions:"
-                        echo "1. Check if tests.py exists in app/"
-                        echo "2. Verify test dependencies are installed"
-                        error("Test execution failed")
                     }
                 }
             }
         }
-    }
-        
-        // stage('Build Frontend') {
-        //     steps {
-        //         echo "========================================"
-        //         echo "🏗️ BUILDING FRONTEND"
-        //         echo "========================================"
-        //         dir('frontend') {
-        //             script {
-        //                 try {
-        //                     if (isUnix()) {
-        //                         sh '''
-        //                         npm run build
-        //                         echo "Build output:"
-        //                         ls -la dist/
-        //                         '''
-        //                     } else {
-        //                         bat '''
-        //                         npm run build
-        //                         dir dist\\
-        //                         '''
-        //                     }
-        //                     echo "✅ Frontend built successfully"
-        //                 } catch (Exception e) {
-        //                     echo "❌ Frontend build failed"
-        //                     error(e.toString())
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
     }
     
     post {
         always {
-            echo "========================================"
-            echo "🏁 PIPELINE FINISHED - STATUS: ${currentBuild.currentResult}"
-            echo "========================================"
+            archiveArtifacts artifacts: 'app/.pytest_cache/**/*', allowEmptyArchive: true
             cleanWs()
-        }
-        success {
-            echo "🎉 PIPELINE SUCCEEDED!"
-            // slackSend message: "Build succeeded: ${env.BUILD_URL}"
-        }
-        failure {
-            echo "❌ PIPELINE FAILED"
-            // mail to: 'team@example.com', subject: "Build failed"
         }
     }
 }
