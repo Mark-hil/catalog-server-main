@@ -5,8 +5,8 @@ pipeline {
         PYTHON_VERSION = '3.9'
         BACKEND_DIR = 'app'
         VENV_NAME = 'flask-backend-env'
-        DATABASE_URI = 'sqlite:///test.db'
-        SQLALCHEMY_DATABASE_URI = 'sqlite:///test.db'
+        DATABASE_URI = 'postgresql://catalog_user:admin1234@localhost:5432/catalog_db'
+        SQLALCHEMY_DATABASE_URI = 'postgresql://catalog_user:admin1234@localhost:5432/catalog_db'
     }
     
     stages {
