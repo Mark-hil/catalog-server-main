@@ -9,7 +9,7 @@ pipeline {
         DOCKERHUB_USERNAME = 'markhill97' // Replace with your actual Docker Hub username
         DOCKER_IMAGE = "${DOCKERHUB_USERNAME}/catalog-server"
         DOCKER_TAG = "${env.BUILD_NUMBER}"
-        DOCKER_CREDENTIALS = 'dockerhub-credentials'
+        DOCKER_CREDENTIALS = 'dockerhub-credentials' // Stored credentials with Access Token
     }
 
     stages {
@@ -47,13 +47,16 @@ pipeline {
         }
 
         stage('Test') {
+            environment {
+                SQLALCHEMY_DATABASE_URI = 'sqlite:///test.db'
+            }
             steps {
                 dir("${BACKEND_DIR}") {
                     echo 'Running automated tests'
                     sh '''
                         . ../${VENV_NAME}/bin/activate
                         pip install pytest pytest-cov
-                        #pytest --cov=app tests/
+                        # python -m pytest test.py -v
                     '''
                 }
             }
@@ -62,22 +65,19 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    echo "Building Docker image..."
-                    sh """
-                        docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
-                    """
+                    sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
                 }
             }
         }
-        
 
         stage('Push to Docker Hub') {
             steps {
                 script {
-                    echo "Pushing Docker image to Docker Hub..."
-                    docker.withRegistry('https://registry.hub.docker.com', 'dockerhub-credentials') {
-                        docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").push()
-                        docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").push('latest')
+                    docker.withRegistry('https://registry.hub.docker.com', DOCKER_CREDENTIALS) {
+                        sh "docker push ${DOCKER_IMAGE}:${DOCKER_TAG}"
+                        sh "docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest"
+                        sh "docker push ${DOCKER_IMAGE}:latest"
+                    }
                 }
             }
         }
