@@ -7,7 +7,8 @@ pipeline {
         VENV_NAME = 'flask-backend-env'
         SQLALCHEMY_DATABASE_URI = 'sqlite:///test.db'
         DOCKERHUB_USERNAME = 'markhill97' // Replace with your actual Docker Hub username
-        DOCKER_IMAGE = "${env.DOCKERHUB_USERNAME}/catalog-server"
+        DOCKER_IMAGE = "${DOCKERHUB_USERNAME}/catalog-server"
+        DOCKER_TAG = "${env.BUILD_NUMBER}"
         DOCKER_CREDENTIALS = 'dockerhub-credentials'
     }
 
@@ -46,27 +47,14 @@ pipeline {
         }
 
         stage('Test') {
-            environment {
-                SQLALCHEMY_DATABASE_URI = "${env.SQLALCHEMY_DATABASE_URI}"
-            }
             steps {
                 dir("${BACKEND_DIR}") {
                     echo 'Running automated tests'
                     sh '''
                         . ../${VENV_NAME}/bin/activate
                         pip install pytest pytest-cov
-                        #pytest --cov=app tests/
+                        pytest --cov=app tests/
                     '''
-                }
-            }
-        }
-
-        stage('Login to Docker Hub') {
-            steps {
-                script {
-                    docker.withRegistry('https://registry.hub.docker.com', env.DOCKER_CREDENTIALS) {
-                        echo "Logged in to Docker Hub"
-                    }
                 }
             }
         }
@@ -74,9 +62,10 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    def tag = env.BUILD_NUMBER ?: "latest"
-                    def imageName = "${env.DOCKERHUB_USERNAME}/catalog-server"
-                    docker.build("${imageName}:${tag}")
+                    echo "Building Docker image..."
+                    sh """
+                        docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
+                    """
                 }
             }
         }
@@ -84,12 +73,13 @@ pipeline {
         stage('Push to Docker Hub') {
             steps {
                 script {
-                    def tag = env.BUILD_NUMBER ?: "latest"
-                    def imageName = "${env.DOCKERHUB_USERNAME}/catalog-server"
-                    docker.withRegistry('https://registry.hub.docker.com', env.DOCKER_CREDENTIALS) {
-                        docker.image("${imageName}:${tag}").push()
-                        docker.image("${imageName}:${tag}").push('latest')
-                    }
+                    echo "Pushing Docker image to Docker Hub..."
+                    sh """
+                        echo \${DOCKER_CREDENTIALS} | docker login -u ${DOCKERHUB_USERNAME} --password-stdin
+                        docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
+                        docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest
+                        docker push ${DOCKER_IMAGE}:latest
+                    """
                 }
             }
         }
