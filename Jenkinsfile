@@ -5,7 +5,6 @@ pipeline {
         PYTHON_VERSION = '3.9'
         BACKEND_DIR = 'app'
         VENV_NAME = 'flask-backend-env'
-        # Fallback to a test SQLite database if not set
         DATABASE_URI = 'sqlite:///test.db'
         SQLALCHEMY_DATABASE_URI = 'sqlite:///test.db'
     }
