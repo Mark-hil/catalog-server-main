@@ -6,10 +6,10 @@ pipeline {
         BACKEND_DIR = 'app'
         VENV_NAME = 'flask-backend-env'
         SQLALCHEMY_DATABASE_URI = 'sqlite:///test.db'
-        DOCKERHUB_USERNAME = 'markhill97' // Replace with your actual Docker Hub username
-        DOCKER_IMAGE = "${DOCKERHUB_USERNAME}/catalog-server"
-        DOCKER_TAG = "${env.BUILD_NUMBER}"
-        DOCKER_CREDENTIALS = 'dockerhub-credentials' // Stored credentials with Access Token
+        DOCKERHUB_USERNAME = 'markhill97'  // Replace with your actual Docker Hub username
+        DOCKER_IMAGE = 'markhill97/catalog-server'
+        DOCKER_TAG = "${BUILD_NUMBER}"
+        DOCKER_CREDENTIALS = 'dockerhub-credentials'  // Store credentials with Access Token
     }
 
     stages {
@@ -73,10 +73,14 @@ pipeline {
         stage('Push to Docker Hub') {
             steps {
                 script {
-                    docker.withRegistry('https://registry.hub.docker.com', DOCKER_CREDENTIALS) {
-                        sh "docker push ${DOCKER_IMAGE}:${DOCKER_TAG}"
-                        sh "docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest"
-                        sh "docker push ${DOCKER_IMAGE}:latest"
+                    withCredentials([usernamePassword(credentialsId: DOCKER_CREDENTIALS, usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_PASSWORD')]) {
+                        sh """
+                            echo "${DOCKERHUB_PASSWORD}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
+                            docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
+                            docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest
+                            docker push ${DOCKER_IMAGE}:latest
+                            docker logout
+                        """
                     }
                 }
             }
