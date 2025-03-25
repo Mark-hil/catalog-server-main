@@ -37,7 +37,7 @@ pipeline {
                         pip install flake8
                         pip install black
                         black .
-                        // flake8 .
+                       
                     '''
                 }
             }
