@@ -15,18 +15,18 @@ import json
 #             db.session.remove()
 #             db.drop_all()
 
-@pytest.fixture
-def auth_headers():
-    # Create a test user and get JWT token
-    user = User(username='testuser', email='test@test.com')
-    user.set_password('password123')
-    db.session.add(user)
-    db.session.commit()
+# @pytest.fixture
+# def auth_headers():
+#     # Create a test user and get JWT token
+#     user = User(username='testuser', email='test@test.com')
+#     user.set_password('password123')
+#     db.session.add(user)
+#     db.session.commit()
     
-    response = client.post('/api/login', 
-        json={'username': 'testuser', 'password': 'password123'})
-    token = response.json['access_token']
-    return {'Authorization': f'Bearer {token}'}
+#     response = client.post('/api/login', 
+#         json={'username': 'testuser', 'password': 'password123'})
+#     token = response.json['access_token']
+#     return {'Authorization': f'Bearer {token}'}
 
 def test_get_products(client):
     # Test getting all products
