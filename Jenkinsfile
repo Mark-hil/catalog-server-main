@@ -24,7 +24,7 @@ pipeline {
                 echo 'Setting up Python virtual environment for backend'
                 sh '''
                     python3 -m venv ${VENV_NAME}
-                    source ${VENV_NAME}/bin/activate
+                    . ${VENV_NAME}/bin/activate
                     pip install --upgrade pip
                     pip install -r requirements.txt
                     pip install python-dotenv
@@ -37,7 +37,7 @@ pipeline {
                 dir("${BACKEND_DIR}") {
                     echo 'Running code quality checks'
                     sh '''
-                        source ../${VENV_NAME}/bin/activate
+                        . ../${VENV_NAME}/bin/activate
                         pip install flake8 black
                         black .
                     '''
@@ -53,7 +53,7 @@ pipeline {
                 dir("${BACKEND_DIR}") {
                     echo 'Running automated tests'
                     sh '''
-                        source ../${VENV_NAME}/bin/activate
+                        . ../${VENV_NAME}/bin/activate
                         pip install pytest pytest-cov
                         #pytest --cov=app tests/
                     '''
