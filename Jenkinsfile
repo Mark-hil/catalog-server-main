@@ -2,195 +2,225 @@ pipeline {
     agent any
     
     environment {
+        // Set Python environment
         PYTHONPATH = "${WORKSPACE}/app"
         FLASK_APP = "app.py"
-        VENV_DIR = "${WORKSPACE}/venv"  // Virtualenv directory
-        PYTHON_BIN = "/usr/bin/python3"  // Update this path as needed
     }
     
     stages {
-        stage('System Diagnostics') {
+        stage('Checkout Code') {
             steps {
                 echo "========================================"
-                echo "🛠️ SYSTEM DIAGNOSTICS (PRE-CHECKS)"
+                echo "🚀 STARTING PIPELINE EXECUTION"
                 echo "========================================"
+                checkout scm
+                echo "✅ Repository cloned successfully"
+                
+                // Debug: Show workspace structure
                 script {
                     if (isUnix()) {
-                        sh """
-                        echo "1. Python availability:"
-                        which python3 || echo "Python3 not found in PATH"
-                        python3 --version || echo "Python3 not working"
-                        
-                        echo "\n2. Disk space:"
-                        df -h ${WORKSPACE}
-                        
-                        echo "\n3. Write permissions:"
-                        touch ${WORKSPACE}/write_test && rm ${WORKSPACE}/write_test && echo "Write OK" || echo "Write failed"
-                        
-                        echo "\n4. Python modules:"
-                        python3 -c "import venv; print('venv module available')" || echo "venv module missing"
-                        """
+                        sh 'echo "Workspace contents:" && ls -la'
                     } else {
-                        bat """
-                        echo "1. Python availability:"
-                        where python || echo "Python not found"
-                        python --version || echo "Python not working"
-                        
-                        echo "\n2. Disk space:"
-                        dir /-c ${WORKSPACE}
-                        
-                        echo "\n3. Write permissions:"
-                        echo. > write_test && del write_test && echo Write OK || echo Write failed
-                        """
+                        bat 'echo "Workspace contents:" && dir'
                     }
                 }
             }
         }
-
-        stage('Setup Virtualenv') {
+        
+        // NEW: Verify Node.js/npm are installed
+        stage('Verify Node.js Installation') {
             steps {
                 echo "========================================"
-                echo "🐍 VIRTUALENV CREATION (WITH FALLBACKS)"
+                echo "🔍 CHECKING NODE.JS INSTALLATION"
                 echo "========================================"
                 script {
                     try {
                         if (isUnix()) {
-                            sh """
-                            # Attempt 1: Standard venv
-                            echo "Attempting standard venv..."
-                            python3 -m venv "${VENV_DIR}" && {
-                                source "${VENV_DIR}/bin/activate"
-                                python -m pip install --upgrade pip
-                                echo "✅ Standard venv created"
-                                exit 0
-                            }
-                            
-                            # Attempt 2: Specified Python path
-                            echo "Falling back to explicit Python path..."
-                            ${PYTHON_BIN} -m venv "${VENV_DIR}" && {
-                                source "${VENV_DIR}/bin/activate"
-                                python -m pip install --upgrade pip
-                                echo "✅ Venv created with ${PYTHON_BIN}"
-                                exit 0
-                            }
-                            
-                            # Attempt 3: virtualenv package
-                            echo "Falling back to virtualenv package..."
-                            python3 -m pip install --user virtualenv && \
-                            python3 -m virtualenv "${VENV_DIR}" && {
-                                source "${VENV_DIR}/bin/activate"
-                                echo "✅ Virtualenv package succeeded"
-                                exit 0
-                            }
-                            
-                            echo "❌ All venv creation attempts failed"
-                            exit 1
-                            """
+                            sh '''
+                            echo "Node.js version:"
+                            node --version || exit 1
+                            echo "npm version:"
+                            npm --version || exit 1
+                            '''
                         } else {
-                            bat """
-                            python -m venv "${VENV_DIR}" || exit /b 1
-                            call "${VENV_DIR}\\Scripts\\activate" || exit /b 1
-                            python -m pip install --upgrade pip || exit /b 1
-                            """
+                            bat '''
+                            echo "Node.js version:"
+                            node --version || exit /b 1
+                            echo "npm version:"
+                            npm --version || exit /b 1
+                            '''
                         }
+                        echo "✅ Node.js and npm are properly installed"
                     } catch (Exception e) {
                         echo """
-                        ❌ VIRTUALENV CREATION FAILED
-                        Full diagnostics:
-                        1. Python path: ${PYTHON_BIN}
-                        2. Workspace: ${WORKSPACE} (${currentBuild.number})
-                        3. Disk space: ${isUnix() ? 'Run df -h' : 'Check disk space'}
+                        ❌ NODE.JS/NPM MISSING!
+                        Install Node.js on the Jenkins server first:
                         
-                        Immediate fixes:
-                        a) SSH into Jenkins server and verify:
-                           sudo -u jenkins python3 -m venv /tmp/test_venv
-                        b) Consider using Docker agent:
-                           agent { docker { image 'python:3.11' } }
+                        For Ubuntu/Debian:
+                        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+                        sudo apt-get install -y nodejs
+                        
+                        Or use a Docker agent with:
+                        agent { docker { image 'node:18' } }
                         """
-                        error("Virtualenv creation failed after multiple attempts")
+                        error("Node.js/npm not found")
                     }
                 }
             }
         }
-
-        stage('Install Dependencies') {
+        
+        stage('Install Backend Dependencies') {
             steps {
-                dir('app') {
-                    script {
-                        try {
-                            if (isUnix()) {
-                                sh """
-                                source "${VENV_DIR}/bin/activate"
-                                echo "Python: $(which python)"
-                                echo "Pip: $(pip --version)"
-                                pip install -r requirements.txt pytest pytest-cov
-                                echo "Installed packages:"
-                                pip list
-                                """
-                            } else {
-                                bat """
-                                call "${VENV_DIR}\\Scripts\\activate"
-                                pip install -r requirements.txt pytest pytest-cov
-                                pip list
-                                """
-                            }
-                        } catch (Exception e) {
-                            echo """
-                            ❌ DEPENDENCY INSTALL FAILED
-                            Debug tips:
-                            1. Check requirements.txt syntax
-                            2. Run manually on server:
-                               source ${VENV_DIR}/bin/activate && pip install -r ${WORKSPACE}/app/requirements.txt
-                            3. Check network connectivity
-                            """
-                            error("Dependency installation failed")
+                echo "========================================"
+                echo "🐍 INSTALLING PYTHON DEPENDENCIES"
+                echo "========================================"
+                script {
+                    try {
+                        if (isUnix()) {
+                            sh '''
+                            python3 --version
+                            pip3 install -r requirements.txt
+                            pip3 list
+                            '''
+                        } else {
+                            bat '''
+                            python --version
+                            pip install -r requirements.txt
+                            pip list
+                            '''
                         }
+                        echo "✅ Backend dependencies installed"
+                    } catch (Exception e) {
+                        echo "❌ Python dependency install failed"
+                        error(e.toString())
                     }
                 }
             }
         }
-
-        stage('Run Tests') {
-            steps {
-                dir('app') {
-                    script {
-                        try {
-                            if (isUnix()) {
-                                sh """
-                                source "${VENV_DIR}/bin/activate"
-                                python -m pytest test.py -v --cov=. --cov-report=term-missing
-                                """
-                            } else {
-                                bat """
-                                call "${VENV_DIR}\\Scripts\\activate"
-                                python -m pytest test.py -v --cov=. --cov-report=term-missing
-                                """
-                            }
-                        } catch (Exception e) {
-                            echo """
-                            ❌ TEST FAILURE
-                            Debug data:
-                            - Python path: $(which python)
-                            - Test file: ${WORKSPACE}/app/test.py
-                            - Last error:
-                            """
-                            if (isUnix()) {
-                                sh 'tail -n 20 .pytest_cache/v/cache/lastfailed || echo "No failure details"'
-                            } else {
-                                bat 'type .pytest_cache\\v\\cache\\lastfailed | more +20 || echo "No failure details"'
-                            }
-                            error("Tests failed")
+        
+        // stage('Install Frontend Dependencies') {
+        //     steps {
+        //         echo "========================================"
+        //         echo "🖥️ INSTALLING FRONTEND DEPENDENCIES"
+        //         echo "========================================"
+        //         dir('frontend') {
+        //             script {
+        //                 try {
+        //                     if (isUnix()) {
+        //                         sh '''
+        //                         echo "Node.js version: $(node --version)"
+        //                         echo "npm version: $(npm --version)"
+        //                         echo "Installing packages..."
+        //                         npm install 
+        //                         echo "Installed packages:"
+        //                         npm list --depth=0
+        //                         '''
+        //                     } else {
+        //                         bat '''
+        //                         node --version
+        //                         npm --version
+        //                         npm install --loglevel verbose
+        //                         npm list --depth=0
+        //                         '''
+        //                     }
+        //                     echo "✅ Frontend dependencies installed"
+        //                 } catch (Exception e) {
+        //                     echo """
+        //                     ❌ FRONTEND INSTALL FAILED!
+        //                     Common fixes:
+        //                     1. Verify package.json exists in frontend/
+        //                     2. Check npm debug log: ${WORKSPACE}/frontend/npm-debug.log
+        //                     3. Ensure network connectivity
+        //                     """
+        //                     error(e.toString())
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
+        
+        stage('Run Backend Tests') {
+        steps {
+            echo "========================================"
+            echo "🧪 RUNNING BACKEND TESTS"
+            echo "========================================"
+            dir('app') {
+                script {
+                    try {
+                        if (isUnix()) {
+                            sh '''
+                            echo "Installing pytest..."
+                            python -m pip install pytest
+                            echo "Running tests..."
+                            python -m pytest test.py -v
+                            '''
+                        } else {
+                            bat '''
+                            echo "Installing pytest..."
+                            python -m pip install pytest
+                            echo "Running tests..."
+                            python -m pytest test.py -v
+                            '''
                         }
+                        echo "✅ All tests passed"
+                    } catch (Exception e) {
+                        echo "❌ TESTS FAILED"
+                        echo "Error details: ${e.toString()}"
+                        echo "Possible solutions:"
+                        echo "1. Check if tests.py exists in app/"
+                        echo "2. Verify test dependencies are installed"
+                        error("Test execution failed")
                     }
                 }
             }
         }
     }
+        
+        // stage('Build Frontend') {
+        //     steps {
+        //         echo "========================================"
+        //         echo "🏗️ BUILDING FRONTEND"
+        //         echo "========================================"
+        //         dir('frontend') {
+        //             script {
+        //                 try {
+        //                     if (isUnix()) {
+        //                         sh '''
+        //                         npm run build
+        //                         echo "Build output:"
+        //                         ls -la dist/
+        //                         '''
+        //                     } else {
+        //                         bat '''
+        //                         npm run build
+        //                         dir dist\\
+        //                         '''
+        //                     }
+        //                     echo "✅ Frontend built successfully"
+        //                 } catch (Exception e) {
+        //                     echo "❌ Frontend build failed"
+        //                     error(e.toString())
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
+    }
     
     post {
         always {
-            archiveArtifacts artifacts: 'app/.pytest_cache/**/*', allowEmptyArchive: true
+            echo "========================================"
+            echo "🏁 PIPELINE FINISHED - STATUS: ${currentBuild.currentResult}"
+            echo "========================================"
             cleanWs()
+        }
+        success {
+            echo "🎉 PIPELINE SUCCEEDED!"
+            // slackSend message: "Build succeeded: ${env.BUILD_URL}"
+        }
+        failure {
+            echo "❌ PIPELINE FAILED"
+            // mail to: 'team@example.com', subject: "Build failed"
         }
     }
 }
